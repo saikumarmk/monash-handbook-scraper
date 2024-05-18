@@ -19,3 +19,14 @@
 
 # Go workspace file
 go.work
+old_data/
+*.ipynb
+sample.json
+unit_sample.json
+*failed.json
+
+# These files are too big to add to github, regenerate locally
+data/raw*
+
+# Ignore the pending files
+data/*failed.json

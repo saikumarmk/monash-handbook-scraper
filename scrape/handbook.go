@@ -14,24 +14,49 @@ import (
 )
 
 // fetchMonashIndex fetches the Monash Index of Units, AOS, and Courses for the current year.
+
 func fetchMonashIndex() (map[string]interface{}, error) {
-	/*
-		Fetches Monash Index of Units, AOS, and Courses for current year.
-	*/
-	response, err := http.Get("https://api-ap-southeast-2.prod.courseloop.com/publisher/search-all?from=0&query=&searchType=advanced&siteId=monash-prod-pres&siteYear=current&size=7000")
+	const baseURL = "https://api-ap-southeast-2.prod.courseloop.com/publisher/search-all"
+	const pageSize = 100
 
-	if err != nil {
-		return nil, err
+	data := make(map[string]interface{})
+	var results []interface{}
+	start := 0
+	session := &http.Client{}
+
+	for {
+		url := fmt.Sprintf("%s?from=%d&query=&searchType=advanced&siteId=monash-prod-pres&siteYear=current&size=%d", baseURL, start, pageSize)
+		response, err := session.Get(url)
+		if err != nil {
+			return nil, err
+		}
+		defer response.Body.Close()
+
+		var pageData map[string]interface{}
+		decoder := json.NewDecoder(response.Body)
+		if err := decoder.Decode(&pageData); err != nil {
+			return nil, err
+		}
+
+		// Extract "items" (or the relevant key where results are stored)
+		if items, exists := pageData["data"].(map[string]interface{})["results"].([]interface{}); exists {
+			results = append(results, items...)
+		}
+
+		// Check total count
+		total, ok := pageData["data"].(map[string]interface{})["total"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("missing or invalid 'total' field")
+		}
+
+		start += pageSize
+		if start >= int(total) {
+			break
+		}
 	}
-	defer response.Body.Close()
 
-	var data map[string]interface{}
-
-	decoder := json.NewDecoder((response.Body))
-	if err := decoder.Decode(&data); err != nil {
-		return nil, err
-	}
-
+	// Store all results in the data map
+	data["results"] = results
 	return data, nil
 }
 
@@ -45,7 +70,7 @@ func processMonashIndex() map[string][]string {
 		fmt.Printf("Error fetching Monash data: %v\n", err)
 		return content_splits
 	}
-	results, ok := monashData["data"].(map[string]interface{})["results"].([]interface{})
+	results, ok := monashData["results"].([]interface{})
 	if !ok {
 		fmt.Println("Error extracting content list")
 		return content_splits
@@ -104,10 +129,15 @@ func saveContentSplits(content_splits map[string][]string) error {
 	return nil
 }
 
+// https://handbook.monash.edu/_next/data/x72Bg6G_Gp9JqA01tHcsD/2024/units/FIT3175.json?year=2024&catchAll=2024&catchAll=units&catchAll=FIT3175
+// /_next/data/x72Bg6G_Gp9JqA01tHcsD/2025/units/FIT3175.json
+
+// https://handbook.monash.edu/_next/data/x72Bg6G_Gp9JqA01tHcsD/current/units/FIT3175.json?year=current&catchAll=current&catchAll=units&catchAll=FIT3175
+
 // getContent retrieves an item from a specific category and sends the JSON response to channels.
 // If the item fails to be scraped (Rate Limited typically), it will be added to a failure channel.
 func getContent(item string, category string, results chan map[string]interface{}, failures chan string, rate_limited chan string) {
-	response, err := http.Get("https://handbook.monash.edu/_next/data/1F6sQtV9SmVrQtVZjV3Zh/current/" + category + "/" + item + ".json?year=current")
+	response, err := http.Get("https://handbook.monash.edu/_next/data/x72Bg6G_Gp9JqA01tHcsD/current/" + category + "/" + item + ".json?year=current&catchAll=current&catchAll=" + category + "&catchAll=" + item)
 
 	if err != nil {
 		results <- nil
@@ -133,19 +163,19 @@ func getContent(item string, category string, results chan map[string]interface{
 	results <- data
 }
 
-// loadUnitsFailed reads a list of failed units (due to rate limiting) from a JSON file.
-func loadUnitsFailed() ([]string, error) {
-	data, err := os.ReadFile("data/units_failed.json")
+// loadFailedItems reads a list of failed units (due to rate limiting) from a JSON file.
+func loadFailedItems(itemType string) ([]string, error) {
+	data, err := os.ReadFile("data/" + itemType + "_failed.json")
 	if err != nil {
 		return nil, err
 	}
 
-	var unitsFailed []string
-	if err := json.Unmarshal(data, &unitsFailed); err != nil {
+	var itemsFailed []string
+	if err := json.Unmarshal(data, &itemsFailed); err != nil {
 		return nil, err
 	}
 
-	return unitsFailed, nil
+	return itemsFailed, nil
 }
 
 // parallelScrapeContent performs parallel scraping of items in a category,
@@ -192,7 +222,6 @@ func parallelScrapeContent(items []string, category string, numWorkers int) {
 	_, err := os.Stat(outputFileName)
 	if os.IsNotExist(err) {
 		successFile, err = os.Create(outputFileName)
-
 		if err != nil {
 			fmt.Println("Error creating file")
 			return
@@ -203,11 +232,25 @@ func parallelScrapeContent(items []string, category string, numWorkers int) {
 			fmt.Println("Error opening file")
 			return
 		}
-		decoder := json.NewDecoder(successFile)
-		if err := decoder.Decode(&existingData); err != nil {
-			fmt.Printf("Error decoding JSON content: %v\n", err)
+
+		// Check if the file is empty
+		fileInfo, err := successFile.Stat()
+		if err != nil {
+			fmt.Printf("Error getting file info: %v\n", err)
 			return
 		}
+
+		if fileInfo.Size() > 0 {
+			decoder := json.NewDecoder(successFile)
+			if err := decoder.Decode(&existingData); err != nil {
+				fmt.Printf("Error decoding JSON content (parallel Scrape): %v\n", err)
+				return
+			}
+		} else {
+			// If file is empty, initialize existingData to a default value
+			existingData = make([]map[string]interface{}, 0) // Change type based on expected structure
+		}
+
 		if _, err := successFile.Seek(0, 0); err != nil {
 			fmt.Printf("Error seeking the file: %v\n", err)
 			return
@@ -216,7 +259,6 @@ func parallelScrapeContent(items []string, category string, numWorkers int) {
 			fmt.Printf("Error truncating the file: %v\n", err)
 			return
 		}
-
 	}
 
 	defer successFile.Close()
@@ -281,6 +323,7 @@ func HandbookScrape(category string, fresh bool) {
 
 	// Get/Create index split
 	contentSplits := InitialiseContentSplits()
+	fmt.Printf("Scraping from handbook: %s\n", category)
 	duration := 7 * time.Minute
 	numWorkers := 10
 
@@ -300,7 +343,7 @@ func HandbookScrape(category string, fresh bool) {
 		time.Sleep(duration)
 		for idx := 2; idx <= 5; idx++ {
 			fmt.Printf("Scraping attempt %d...\n", idx)
-			unitsFailed, _ := loadUnitsFailed()
+			unitsFailed, _ := loadFailedItems(category)
 			parallelScrapeContent(unitsFailed, "units", 10)
 
 			fmt.Println("Starting the 7-minute pause...")
@@ -310,9 +353,18 @@ func HandbookScrape(category string, fresh bool) {
 
 	case "aos":
 		parallelScrapeContent(contentSplits["aos"], "aos", numWorkers)
+		itemsFailed, _ := loadFailedItems(category)
+		fmt.Println("Starting the 7-minute pause...")
+		time.Sleep(duration)
+		parallelScrapeContent(itemsFailed, "aos", numWorkers)
 
 	case "courses":
+
 		parallelScrapeContent(contentSplits["courses"], "courses", numWorkers)
+		coursesFailed, _ := loadFailedItems(category)
+		fmt.Println("Starting the 7-minute pause...")
+		time.Sleep(duration)
+		parallelScrapeContent(coursesFailed, "courses", numWorkers)
 
 	default:
 		fmt.Println("Invalid category")

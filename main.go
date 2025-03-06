@@ -22,6 +22,7 @@ func main() {
 		os.Mkdir("data", os.ModeDir)
 	}
 	contentSplits := scrape.InitialiseContentSplits()
+	fmt.Print("Obtained content index\n")
 
 	switch *actionFlag {
 	case "scrape":
@@ -29,6 +30,7 @@ func main() {
 
 		// Run this only after running the unit formatter
 		case "requisites":
+			fmt.Print("Doing requisites")
 			var unitItems [][]string
 
 			for _, item := range contentSplits["units"] {
@@ -54,11 +56,13 @@ func main() {
 			scrape.RequisiteScrape(prohibitionCandidates, "prohibitions")
 
 		default:
+
 			scrape.HandbookScrape(*contentFlag, true) // Make separate function to save instead of doing it at once
 		}
 
 	// Single responsibility into file -> saves to file in there
 	case "format":
+		fmt.Print("Formatting " + *contentFlag + "\n")
 		file, err := os.Open("data/raw_" + *contentFlag + ".json")
 		if err != nil {
 			fmt.Println("Could not find " + "*contentFlag" + ".json")
@@ -76,6 +80,10 @@ func main() {
 		switch *contentFlag {
 		case "units":
 			formatted_data = format.FormatUnits(raw_data)
+		case "aos":
+			formatted_data = format.FormatAOSs(raw_data)
+		case "courses":
+			formatted_data = format.FormatCourses(raw_data)
 		default:
 			fmt.Println("How did you even get here??")
 			return
@@ -87,11 +95,12 @@ func main() {
 			fmt.Println("Error marshalling JSON:", err)
 		}
 
-		if err := os.WriteFile("data/formatted_units.json", data, 0644); err != nil {
+		if err := os.WriteFile("data/formatted_"+*contentFlag+".json", data, 0644); err != nil {
 			fmt.Println("Failed to write to file:", err)
 		}
-		fmt.Println("Succesfully formatted " + *contentFlag)
+		fmt.Println("Succesfully formatted " + *contentFlag + "\n")
 	case "process":
+		fmt.Print("Processing units")
 		processed := process.ProcessHandbook()
 
 		data, err := json.Marshal(processed)

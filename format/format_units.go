@@ -121,6 +121,44 @@ func getAssessments(raw_assessments []interface{}) []map[string]interface{} {
 	return assessments
 }
 
+// ExtractSCABand safely retrieves the SCA band value
+func ExtractSCABand(rawUnit map[string]interface{}) int {
+	// Check if "highest_sca_band" exists
+	highestSCA, exists := rawUnit["highest_sca_band"]
+	if !exists {
+		return 0
+	}
+
+	// Case 1: highest_sca_band is a map and contains "value"
+	if bandMap, ok := highestSCA.(map[string]interface{}); ok {
+		if val, exists := bandMap["value"]; exists {
+			if strVal, ok := val.(string); ok {
+				return extractLastDigit(strVal)
+			}
+		}
+	}
+
+	// Case 2: highest_sca_band is directly a string
+	if str, ok := highestSCA.(string); ok {
+		return extractLastDigit(str)
+	}
+
+	// Return 0 if no valid band found
+	return 0
+}
+
+// extractLastDigit extracts the integer value from the last character of a string
+func extractLastDigit(s string) int {
+	if len(s) == 0 {
+		return 0
+	}
+	lastChar := s[len(s)-1:]
+	if num, err := strconv.Atoi(lastChar); err == nil {
+		return num
+	}
+	return 0
+}
+
 func FormatUnit(raw_unit map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
 		"title":         raw_unit["title"],
@@ -134,7 +172,7 @@ func FormatUnit(raw_unit map[string]interface{}) map[string]interface{} {
 			}
 			return 0
 		}(),
-		"sca_band":     raw_unit["highest_sca_band"].(map[string]interface{})["value"],
+		"sca_band":     ExtractSCABand(raw_unit),
 		"academic_org": raw_unit["academic_org"].(map[string]interface{})["value"],
 		"school":       raw_unit["school"].(map[string]interface{})["value"],
 		"offerings":    getOfferings(raw_unit["unit_offering"].([]interface{})),

@@ -65,7 +65,7 @@ func main() {
 		fmt.Print("Formatting " + *contentFlag + "\n")
 		file, err := os.Open("data/raw_" + *contentFlag + ".json")
 		if err != nil {
-			fmt.Println("Could not find " + "*contentFlag" + ".json")
+			fmt.Println("Could not find " + *contentFlag + ".json")
 			return
 		}
 		defer file.Close()

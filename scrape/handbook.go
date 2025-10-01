@@ -336,38 +336,38 @@ func HandbookScrape(category string, fresh bool) {
 	}
 
 	switch category {
-	case "units":
-		// Scrape units and retry on rate limiting.
-		parallelScrapeContent(contentSplits["units"], "units", numWorkers)
-		fmt.Println("Starting the 7-minute pause...")
-		time.Sleep(duration)
-		for idx := 2; idx <= 5; idx++ {
-			fmt.Printf("Scraping attempt %d...\n", idx)
-			unitsFailed, _ := loadFailedItems(category)
-			parallelScrapeContent(unitsFailed, "units", 10)
-
+		case "units":
+			// Scrape units and retry on rate limiting.
+			parallelScrapeContent(contentSplits["units"], "units", numWorkers)
 			fmt.Println("Starting the 7-minute pause...")
 			time.Sleep(duration)
-			fmt.Println("Pause complete. Resuming the program.")
-		}
+			for idx := 2; idx <= 5; idx++ {
+				fmt.Printf("Scraping attempt %d...\n", idx)
+				unitsFailed, _ := loadFailedItems(category)
+				parallelScrapeContent(unitsFailed, "units", 10)
 
-	case "aos":
-		parallelScrapeContent(contentSplits["aos"], "aos", numWorkers)
-		itemsFailed, _ := loadFailedItems(category)
-		fmt.Println("Starting the 7-minute pause...")
-		time.Sleep(duration)
-		parallelScrapeContent(itemsFailed, "aos", numWorkers)
+				fmt.Println("Starting the 7-minute pause...")
+				time.Sleep(duration)
+				fmt.Println("Pause complete. Resuming the program.")
+			}
 
-	case "courses":
+		case "aos":
+			parallelScrapeContent(contentSplits["aos"], "aos", numWorkers)
+			itemsFailed, _ := loadFailedItems(category)
+			fmt.Println("Starting the 7-minute pause...")
+			time.Sleep(duration)
+			parallelScrapeContent(itemsFailed, "aos", numWorkers)
 
-		parallelScrapeContent(contentSplits["courses"], "courses", numWorkers)
-		coursesFailed, _ := loadFailedItems(category)
-		fmt.Println("Starting the 7-minute pause...")
-		time.Sleep(duration)
-		parallelScrapeContent(coursesFailed, "courses", numWorkers)
+		case "courses":
 
-	default:
-		fmt.Println("Invalid category")
+			parallelScrapeContent(contentSplits["courses"], "courses", numWorkers)
+			coursesFailed, _ := loadFailedItems(category)
+			fmt.Println("Starting the 7-minute pause...")
+			time.Sleep(duration)
+			parallelScrapeContent(coursesFailed, "courses", numWorkers)
+
+		default:
+			fmt.Println("Invalid category")
 	}
 
 }

@@ -1,0 +1,49 @@
+graph LR
+    subgraph "Input Sources"
+        API1[🌐 CourseLoop API] --> FILE1
+        API2[🌐 Handbook API] --> FILE2
+        API2 --> FILE3
+        API2 --> FILE4
+        API3[🌐 MonPlan API] --> FILE8
+        API3 --> FILE9
+    end
+
+    subgraph "Generated Files"
+        FILE1[📄 content_splits.json]
+        FILE2[📄 raw_units.json]
+        FILE3[📄 raw_courses.json]
+        FILE4[📄 raw_aos.json]
+        FILE5[📄 formatted_units.json]
+        FILE6[📄 formatted_courses.json]
+        FILE7[📄 formatted_aos.json]
+        FILE8[📄 raw_prerequisites.json]
+        FILE9[📄 raw_prohibitions.json]
+        FILE10[📄 prohibition_candidates.json]
+        FILE11[📄 processed_units.json]
+        FILE12[📄 units_failed.json]
+    end
+
+    FILE1 -.Used by all commands.-> FILE2
+    FILE1 -.-> FILE3
+    FILE1 -.-> FILE4
+
+    FILE2 -->|format units| FILE5
+    FILE3 -->|format courses| FILE6
+    FILE4 -->|format aos| FILE7
+
+    FILE5 -->|extract prohibitions| FILE10
+    FILE10 -->|scrape requisites| FILE9
+    FILE1 -->|scrape requisites| FILE8
+
+    FILE5 -->|process| FILE11
+    FILE8 -->|process| FILE11
+    FILE9 -->|process| FILE11
+
+    FILE2 -.Rate limited units.-> FILE12
+    FILE12 -.Retry scraping.-> FILE2
+
+    style API1 fill:#ffccbc
+    style API2 fill:#ffccbc
+    style API3 fill:#ffccbc
+    style FILE11 fill:#4caf50,color:#fff
+    style FILE1 fill:#fff9c4

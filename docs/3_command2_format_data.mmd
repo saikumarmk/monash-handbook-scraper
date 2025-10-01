@@ -1,0 +1,36 @@
+graph TB
+    START_FORMAT[FormatUnits called] --> READ_RAW[📖 READ: data/raw_units.json]
+    READ_RAW --> DECODE_RAW[Decode JSON array]
+    DECODE_RAW --> INIT_MAPS[Initialize formatted_data map + prohibition_candidates array]
+
+    INIT_MAPS --> LOOP_UNITS{For each raw unit}
+    LOOP_UNITS -->|Process| EXTRACT_FIELDS[Extract and format fields]
+    EXTRACT_FIELDS --> BUILD_UNIT[Build formatted unit object]
+    BUILD_UNIT --> EXTRACT_OFFERINGS[Format offerings array]
+    EXTRACT_OFFERINGS --> EXTRACT_ASSESSMENTS[Format assessments array]
+    EXTRACT_ASSESSMENTS --> EXTRACT_SCA[Extract SCA band]
+    EXTRACT_SCA --> EXTRACT_LEVEL[Calculate level from code]
+    EXTRACT_LEVEL --> STORE_FORMATTED[Store in formatted_data map by unit code]
+    STORE_FORMATTED --> LOOP_UNITS
+
+    LOOP_UNITS -->|Done| SECOND_PASS{For each raw unit again}
+    SECOND_PASS -->|Process| SEARCH_RULES[Search enrolment_rules for PROHIBITION]
+    SEARCH_RULES --> REGEX_MATCH[Regex match unit codes]
+    REGEX_MATCH --> SEARCH_REQUISITES[Search requisites.requisite_type for prohibitions]
+    SEARCH_REQUISITES --> EXTRACT_RELATIONSHIPS[Extract relationships.academic_item units]
+    EXTRACT_RELATIONSHIPS --> CHECK_EXISTS{Extracted units exist in formatted_data?}
+    CHECK_EXISTS -->|Yes| BUILD_CANDIDATE[Build prohibition candidate array]
+    CHECK_EXISTS -->|No| SKIP_CANDIDATE[Skip this candidate]
+    BUILD_CANDIDATE --> ADD_TO_LIST[Add to prohibition_candidates if length gt 1]
+    SKIP_CANDIDATE --> SECOND_PASS
+    ADD_TO_LIST --> SECOND_PASS
+
+    SECOND_PASS -->|Done| WRITE_FORMATTED[💾 WRITE: data/formatted_units.json]
+    WRITE_FORMATTED --> WRITE_PROHIBITIONS[💾 WRITE: data/prohibition_candidates.json]
+    WRITE_PROHIBITIONS --> FORMAT_DONE[✅ Formatting complete]
+
+    style START_FORMAT fill:#e1f5ff
+    style READ_RAW fill:#c8e6c9
+    style WRITE_FORMATTED fill:#b39ddb
+    style WRITE_PROHIBITIONS fill:#b39ddb
+    style FORMAT_DONE fill:#c8e6c9

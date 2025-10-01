@@ -1,0 +1,32 @@
+graph TB
+    subgraph "INITIALIZATION (All Commands)"
+        START([CLI: go run main.go]) --> PARSE_FLAGS[Parse --choice and --content flags]
+        PARSE_FLAGS --> CHECK_DATA{data/ folder exists?}
+        CHECK_DATA -->|No| CREATE_DATA[Create data/ folder]
+        CHECK_DATA -->|Yes| SKIP_CREATE[Continue]
+        CREATE_DATA --> INIT_SPLITS
+        SKIP_CREATE --> INIT_SPLITS[Call InitialiseContentSplits]
+
+        INIT_SPLITS --> CHECK_SPLITS{content_splits.json exists?}
+        CHECK_SPLITS -->|Yes| READ_SPLITS[📖 READ: data/content_splits.json]
+        CHECK_SPLITS -->|No| FETCH_INDEX
+
+        READ_SPLITS --> SPLITS_READY[Content splits ready]
+
+        subgraph "Index Fetching"
+            FETCH_INDEX[Fetch from CourseLoop API] --> API1[🌐 GET: api-ap-southeast-2.prod.courseloop.com]
+            API1 --> PAGINATE{More pages?}
+            PAGINATE -->|Yes| API1
+            PAGINATE -->|No| PARSE_INDEX[Parse results by content type]
+            PARSE_INDEX --> SAVE_SPLITS[💾 WRITE: data/content_splits.json]
+            SAVE_SPLITS --> SPLITS_READY
+        end
+    end
+
+    SPLITS_READY --> ROUTE_CHOICE{--choice value?}
+
+    style START fill:#e1f5ff
+    style SPLITS_READY fill:#fff9c4
+    style API1 fill:#ffccbc
+    style READ_SPLITS fill:#c8e6c9
+    style SAVE_SPLITS fill:#b39ddb

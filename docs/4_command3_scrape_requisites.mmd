@@ -1,0 +1,49 @@
+graph TB
+    START_REQ[Scrape requisites branch] --> LOAD_SPLITS2[Load content_splits.units]
+    LOAD_SPLITS2 --> WRAP_UNITS[Wrap each unit code in array]
+
+    WRAP_UNITS --> CALL_SCRAPE1[Call RequisiteScrape with unit list prerequisites]
+    CALL_SCRAPE1 --> PREP_WORKERS1[Prepare 10 parallel workers]
+    PREP_WORKERS1 --> SPLIT_UNITS1[Split unit arrays across workers]
+    SPLIT_UNITS1 --> WORKERS1[Workers 1-10: Process batches]
+
+    WORKERS1 --> LOOP_PREREQ{More unit arrays?}
+    LOOP_PREREQ -->|Yes| BUILD_PAYLOAD1[Build MonPlan payload with unit]
+    BUILD_PAYLOAD1 --> POST_API1[🌐 POST: mscv.apps.monash.edu with JSON payload]
+    POST_API1 --> READ_RESPONSE1[Read response body]
+    READ_RESPONSE1 --> PARSE_VALIDATION1[Parse courseErrors from response]
+    PARSE_VALIDATION1 --> RESULTS_CHAN1[Add to results channel]
+    RESULTS_CHAN1 --> LOOP_PREREQ
+    LOOP_PREREQ -->|No| WORKER_DONE1[Worker complete]
+
+    WORKER_DONE1 --> MERGE_PREREQ[Merge all prerequisite responses]
+    MERGE_PREREQ --> SAVE_PREREQ[💾 WRITE: data/raw_prerequisites.json]
+
+    SAVE_PREREQ --> READ_PROHIB_CAND[📖 READ: data/prohibition_candidates.json]
+    READ_PROHIB_CAND --> DECODE_PROHIB[Decode prohibition candidate arrays]
+    DECODE_PROHIB --> CALL_SCRAPE2[Call RequisiteScrape with prohibition pairs]
+
+    CALL_SCRAPE2 --> PREP_WORKERS2[Prepare 10 parallel workers]
+    PREP_WORKERS2 --> SPLIT_UNITS2[Split prohibition arrays across workers]
+    SPLIT_UNITS2 --> WORKERS2[Workers 1-10: Process batches]
+
+    WORKERS2 --> LOOP_PROHIB{More prohibition arrays?}
+    LOOP_PROHIB -->|Yes| BUILD_PAYLOAD2[Build MonPlan payload with unit array]
+    BUILD_PAYLOAD2 --> POST_API2[🌐 POST: mscv.apps.monash.edu with JSON payload]
+    POST_API2 --> READ_RESPONSE2[Read response body]
+    READ_RESPONSE2 --> PARSE_VALIDATION2[Parse courseErrors from response]
+    PARSE_VALIDATION2 --> RESULTS_CHAN2[Add to results channel]
+    RESULTS_CHAN2 --> LOOP_PROHIB
+    LOOP_PROHIB -->|No| WORKER_DONE2[Worker complete]
+
+    WORKER_DONE2 --> MERGE_PROHIB[Merge all prohibition responses]
+    MERGE_PROHIB --> SAVE_PROHIB[💾 WRITE: data/raw_prohibitions.json]
+    SAVE_PROHIB --> REQ_DONE[✅ Requisite scraping complete]
+
+    style START_REQ fill:#e1f5ff
+    style POST_API1 fill:#ffccbc
+    style POST_API2 fill:#ffccbc
+    style READ_PROHIB_CAND fill:#c8e6c9
+    style SAVE_PREREQ fill:#b39ddb
+    style SAVE_PROHIB fill:#b39ddb
+    style REQ_DONE fill:#c8e6c9

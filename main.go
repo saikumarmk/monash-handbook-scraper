@@ -30,14 +30,33 @@ func main() {
 
 		// Run this only after running the unit formatter
 		case "requisites":
-			fmt.Print("Doing requisites")
+			fmt.Print("Doing requisites\n")
+
+			// Load the detected year from the format step
+			var year int = 2024 // Default fallback
+			yearFile, err := os.Open("data/detected_year.json")
+			if err == nil {
+				var yearData map[string]string
+				yearDecoder := json.NewDecoder(yearFile)
+				if err := yearDecoder.Decode(&yearData); err == nil {
+					if yearStr, ok := yearData["implementation_year"]; ok {
+						// Convert string year to int
+						fmt.Sscanf(yearStr, "%d", &year)
+						fmt.Printf("Using detected year: %d\n", year)
+					}
+				}
+				yearFile.Close()
+			} else {
+				fmt.Printf("Warning: Could not load detected year, using default: %d\n", year)
+			}
+
 			var unitItems [][]string
 
 			for _, item := range contentSplits["units"] {
 				unitItems = append(unitItems, []string{item})
 			}
 
-			scrape.RequisiteScrape(unitItems, "prerequisites")
+			scrape.RequisiteScrape(unitItems, "prerequisites", year)
 
 			file, err := os.Open("data/prohibition_candidates.json")
 			if err != nil {
@@ -53,7 +72,7 @@ func main() {
 				fmt.Println("Error decoding JSON:", err)
 				return
 			}
-			scrape.RequisiteScrape(prohibitionCandidates, "prohibitions")
+			scrape.RequisiteScrape(prohibitionCandidates, "prohibitions", year)
 
 		default:
 
@@ -71,6 +90,7 @@ func main() {
 		defer file.Close()
 		var raw_data []map[string]interface{}
 		var formatted_data map[string]interface{}
+		var detectedYear string
 		decoder := json.NewDecoder(file)
 		if err := decoder.Decode(&raw_data); err != nil {
 			fmt.Println("Error decoding JSON:", err)
@@ -79,7 +99,15 @@ func main() {
 
 		switch *contentFlag {
 		case "units":
-			formatted_data = format.FormatUnits(raw_data)
+			formatted_data, detectedYear = format.FormatUnits(raw_data)
+			// Save the detected year to a file for later use
+			yearData := map[string]string{"implementation_year": detectedYear}
+			yearJSON, _ := json.Marshal(yearData)
+			if err := os.WriteFile("data/detected_year.json", yearJSON, 0644); err != nil {
+				fmt.Println("Failed to write detected year:", err)
+			} else {
+				fmt.Printf("Saved detected year: %s\n", detectedYear)
+			}
 		case "aos":
 			formatted_data = format.FormatAOSs(raw_data)
 		case "courses":

@@ -183,10 +183,21 @@ func FormatUnit(raw_unit map[string]interface{}) map[string]interface{} {
 
 // raw_unit["level"].(map[string]interface{})["value"],
 // Generates two artefacts, one is IO'd
-func FormatUnits(raw_units []map[string]interface{}) map[string]interface{} {
+// Returns: (formatted_unit_data, detected_year)
+func FormatUnits(raw_units []map[string]interface{}) (map[string]interface{}, string) {
 
 	var formatted_unit_data = make(map[string]interface{})
 	var prohibition_candidates [][]string
+
+	// Extract implementation year from first unit with the field
+	var detectedYear string = "2024" // Default fallback
+	for _, unit := range raw_units {
+		if implYear, ok := unit["implementation_year"].(string); ok && implYear != "" {
+			detectedYear = implYear
+			fmt.Printf("Detected implementation year: %s\n", detectedYear)
+			break
+		}
+	}
 
 	for _, unit := range raw_units {
 		code, ok := unit["code"].(string)
@@ -226,6 +237,6 @@ func FormatUnits(raw_units []map[string]interface{}) map[string]interface{} {
 		fmt.Println("Encountered an error writing:", err)
 	}
 
-	return formatted_unit_data
+	return formatted_unit_data, detectedYear
 
 }

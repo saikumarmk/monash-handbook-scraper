@@ -11,7 +11,7 @@ import (
 )
 
 // Processes the requisites
-func RequisiteScrape(unitCodeList [][]string, fileName string) {
+func RequisiteScrape(unitCodeList [][]string, fileName string, year int) {
 	numWorkers := 10
 
 	var wg sync.WaitGroup
@@ -25,7 +25,7 @@ func RequisiteScrape(unitCodeList [][]string, fileName string) {
 		go func(unitCodesSlice [][]string) {
 			defer wg.Done()
 			for _, unitCode := range unitCodesSlice {
-				response, err := postRequest(unitCode)
+				response, err := postRequest(unitCode, year)
 				if err != nil {
 					fmt.Printf("Error for unit %s: %v\n", unitCode, err)
 				} else {
@@ -50,9 +50,9 @@ func RequisiteScrape(unitCodeList [][]string, fileName string) {
 	saveResponsesToJSON(responses, fileName)
 }
 
-func postRequest(unitCodes []string) (map[string]interface{}, error) {
+func postRequest(unitCodes []string, year int) (map[string]interface{}, error) {
 	url := "https://mscv.apps.monash.edu"
-	payload := createRequestPayload(unitCodes)
+	payload := createRequestPayload(unitCodes, year)
 
 	requestBody, err := json.Marshal(payload)
 	if err != nil {
@@ -79,7 +79,7 @@ func postRequest(unitCodes []string) (map[string]interface{}, error) {
 	return response, nil
 }
 
-func createRequestPayload(unitCodes []string) map[string]interface{} {
+func createRequestPayload(unitCodes []string, year int) map[string]interface{} {
 	units := make([]map[string]interface{}, len(unitCodes))
 
 	for i, unitCode := range unitCodes {
@@ -91,13 +91,13 @@ func createRequestPayload(unitCodes []string) map[string]interface{} {
 	}
 
 	payload := map[string]interface{}{
-		"startYear":            2024,
+		"startYear":            year,
 		"advancedStanding":     []interface{}{},
 		"internationalStudent": false,
 		"courseInfo":           map[string]interface{}{},
 		"teachingPeriods": []map[string]interface{}{
 			{
-				"year":         2024,
+				"year":         year,
 				"code":         "S1-01",
 				"units":        units,
 				"intermission": false,

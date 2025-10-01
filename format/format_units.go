@@ -32,10 +32,14 @@ func pullHandbookRequisites(handbookDict map[string]interface{}) map[string]bool
 		for _, ruleBox := range boxedRules.([]interface{}) {
 			switch ruleType := ruleBox.(map[string]interface{})["requisite_type"].(map[string]interface{})["value"].(string); ruleType {
 			case "prohibitions":
-				relationships := ruleBox.(map[string]interface{})["container"].([]interface{})[0].(map[string]interface{})["relationships"].([]interface{})
-				for _, unitSpec := range relationships {
-					unitValue := strings.Fields(unitSpec.(map[string]interface{})["academic_item"].(map[string]interface{})["value"].(string))[1]
-					prohibitions[unitValue] = true
+				container := ruleBox.(map[string]interface{})["container"].([]interface{})
+				// Check if container is not empty before accessing [0]
+				if len(container) > 0 {
+					relationships := container[0].(map[string]interface{})["relationships"].([]interface{})
+					for _, unitSpec := range relationships {
+						unitValue := strings.Fields(unitSpec.(map[string]interface{})["academic_item"].(map[string]interface{})["value"].(string))[1]
+						prohibitions[unitValue] = true
+					}
 				}
 			}
 		}

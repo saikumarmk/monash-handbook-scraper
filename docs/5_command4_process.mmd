@@ -1,0 +1,79 @@
+graph TB
+    START_PROCESS[ProcessHandbook called] --> CALL_PROCESS_REQ[Call ProcessRequisites]
+    CALL_PROCESS_REQ --> READ_PREREQ_FILE[📖 READ: data/raw_prerequisites.json]
+    READ_PREREQ_FILE --> DECODE_PREREQ_RULES[Decode array of Rule objects]
+
+    DECODE_PREREQ_RULES --> READ_PROHIB_FILE[📖 READ: data/raw_prohibitions.json]
+    READ_PROHIB_FILE --> DECODE_PROHIB_RULES[Decode array of Rule objects]
+
+    DECODE_PROHIB_RULES --> MERGE_RULES[Merge all courseErrors into single Rule]
+    MERGE_RULES --> FILTER_PROHIB[Filter prohibition courseErrors by title]
+    FILTER_PROHIB --> RULES_TO_REQ[Call rulesToRequisites]
+
+    RULES_TO_REQ --> GROUP_BY_UNIT{For each courseError}
+    GROUP_BY_UNIT --> GET_UNIT_CODE[Extract unit code from references]
+    GET_UNIT_CODE --> CHECK_DUPLICATE{title == Duplicate unit?}
+    CHECK_DUPLICATE -->|No| ADD_RAW_REQ[Add RawRequisite to units list]
+    CHECK_DUPLICATE -->|Yes| SKIP_DUP[Skip this error]
+    ADD_RAW_REQ --> GROUP_BY_UNIT
+    SKIP_DUP --> GROUP_BY_UNIT
+    GROUP_BY_UNIT -->|Done| RAW_REQ_MAP[Return map unitCode to RawRequisite]
+
+    RAW_REQ_MAP --> REFINE_REQ[Call refineRequisites]
+    REFINE_REQ --> LOOP_UNITS_REQ{For each units raw requisites}
+    LOOP_UNITS_REQ --> INIT_REFINED[Initialize RefinedRequisite with empty arrays]
+
+    INIT_REFINED --> LOOP_RULES{For each RawRequisite}
+    LOOP_RULES --> CHECK_TITLE{Check rule title}
+
+    CHECK_TITLE -->|Prohibited unit| REGEX_PROHIB[Regex extract unit codes]
+    REGEX_PROHIB --> ADD_PROHIB[Add to prohibitions array]
+
+    CHECK_TITLE -->|Have not enrolled/completed| REGEX_PREREQ1[Regex extract unit codes]
+    REGEX_PREREQ1 --> ADD_PREREQ1[Add NumReq 1 units to prerequisites]
+
+    CHECK_TITLE -->|Have not passed enough| SPLIT_DESC1[Split description by colon]
+    SPLIT_DESC1 --> EXTRACT_NUM1[Extract number from first part]
+    EXTRACT_NUM1 --> SPLIT_UNITS1[Split units by comma and or]
+    SPLIT_UNITS1 --> ADD_PREREQ2[Add NumReq X units to prerequisites]
+
+    CHECK_TITLE -->|Missing corequisites| SPLIT_DESC2[Split description by colon]
+    SPLIT_DESC2 --> EXTRACT_NUM2[Extract number from first part]
+    EXTRACT_NUM2 --> SPLIT_UNITS2[Split units by comma and or]
+    SPLIT_UNITS2 --> ADD_COREQ[Add NumReq X units to corequisites]
+
+    CHECK_TITLE -->|Not enough credit points| REGEX_CP[Regex extract number]
+    REGEX_CP --> SET_CP[Set cp_required]
+
+    CHECK_TITLE -->|Permission required| SET_PERM[Set permission true]
+
+    ADD_PROHIB --> LOOP_RULES
+    ADD_PREREQ1 --> LOOP_RULES
+    ADD_PREREQ2 --> LOOP_RULES
+    ADD_COREQ --> LOOP_RULES
+    SET_CP --> LOOP_RULES
+    SET_PERM --> LOOP_RULES
+
+    LOOP_RULES -->|Done| STORE_REFINED[Store RefinedRequisite for unit]
+    STORE_REFINED --> LOOP_UNITS_REQ
+    LOOP_UNITS_REQ -->|Done| REFINED_MAP[Return map unitCode to RefinedRequisite]
+
+    REFINED_MAP --> RETURN_REFINED[Return processed requisites map]
+    RETURN_REFINED --> READ_FORMATTED[📖 READ: data/formatted_units.json]
+    READ_FORMATTED --> DECODE_HANDBOOK[Decode formatted units map]
+
+    DECODE_HANDBOOK --> MERGE_LOOP{For each unit in formatted_units}
+    MERGE_LOOP --> LOOKUP_REQ[Lookup requisites from processed map by unitCode]
+    LOOKUP_REQ --> ASSIGN_REQ[Assign requisites to unit.requisites field]
+    ASSIGN_REQ --> MERGE_LOOP
+
+    MERGE_LOOP -->|Done| MARSHAL_FINAL[Marshal final map to JSON]
+    MARSHAL_FINAL --> WRITE_FINAL[💾 WRITE: data/processed_units.json]
+    WRITE_FINAL --> PROCESS_DONE[✅ Processing complete - FINAL OUTPUT]
+
+    style START_PROCESS fill:#e1f5ff
+    style READ_PREREQ_FILE fill:#c8e6c9
+    style READ_PROHIB_FILE fill:#c8e6c9
+    style READ_FORMATTED fill:#c8e6c9
+    style WRITE_FINAL fill:#b39ddb
+    style PROCESS_DONE fill:#4caf50

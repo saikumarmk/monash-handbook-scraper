@@ -1,0 +1,72 @@
+graph TB
+    subgraph "Raw Handbook Data"
+        RAW[Raw JSON from API]
+        RAW --> |Contains| RAW1[pageProps.pageContent]
+        RAW1 --> RAW2[title, code, credit_points]
+        RAW1 --> RAW3[academic_org.value]
+        RAW1 --> RAW4[school.value]
+        RAW1 --> RAW5[highest_sca_band.value]
+        RAW1 --> RAW6[unit_offering array]
+        RAW1 --> RAW7[assessments array]
+        RAW1 --> RAW8[enrolment_rules array]
+        RAW1 --> RAW9[requisites array]
+    end
+
+    subgraph "Formatted Unit Data"
+        FORMATTED[Formatted Unit Object]
+        FORMATTED --> F1[code: string]
+        FORMATTED --> F2[title: string]
+        FORMATTED --> F3[credit_points: string]
+        FORMATTED --> F4[level: int extracted from code]
+        FORMATTED --> F5[sca_band: int parsed from string]
+        FORMATTED --> F6[academic_org: string]
+        FORMATTED --> F7[school: string]
+        FORMATTED --> F8[offerings: array of formatted offerings]
+        FORMATTED --> F9[assessments: array of formatted assessments]
+        FORMATTED --> F10[requisites: null initially]
+    end
+
+    subgraph "Processed Requisites"
+        REQUISITES[RefinedRequisite Object]
+        REQUISITES --> R1[permission: bool]
+        REQUISITES --> R2[prohibitions: string array]
+        REQUISITES --> R3[corequisites: array of objects]
+        REQUISITES --> R4[prerequisites: array of objects]
+        REQUISITES --> R5[cp_required: int]
+
+        R3 --> R3A[NumReq: int]
+        R3 --> R3B[units: string array]
+
+        R4 --> R4A[NumReq: int]
+        R4 --> R4B[units: string array]
+    end
+
+    subgraph "Final Processed Unit"
+        FINAL[Complete Unit Object]
+        FINAL --> MERGE1[All formatted fields]
+        FINAL --> MERGE2[requisites: RefinedRequisite]
+    end
+
+    RAW2 --> F1
+    RAW2 --> F2
+    RAW2 --> F3
+    RAW3 --> F6
+    RAW4 --> F7
+    RAW5 --> F5
+    RAW6 --> F8
+    RAW7 --> F9
+
+    RAW8 -.Text mining.-> PROHIB_CAND[prohibition_candidates.json]
+    RAW9 -.Text mining.-> PROHIB_CAND
+
+    PROHIB_CAND -.MonPlan validation.-> MONPLAN[MonPlan API courseErrors]
+    MONPLAN --> REQUISITES
+
+    FORMATTED --> MERGE1
+    REQUISITES --> MERGE2
+
+    style RAW fill:#ffebee
+    style FORMATTED fill:#fff9c4
+    style REQUISITES fill:#e1f5fe
+    style FINAL fill:#c8e6c9
+    style MONPLAN fill:#ffccbc

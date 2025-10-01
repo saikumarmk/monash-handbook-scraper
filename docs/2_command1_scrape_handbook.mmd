@@ -1,0 +1,50 @@
+graph TB
+    subgraph "SCRAPE HANDBOOK: go run main.go --choice scrape --content units"
+        START_SCRAPE[HandbookScrape called] --> LOAD_SPLITS[Load content_splits from memory]
+        LOAD_SPLITS --> CHECK_EXISTING{raw_units.json exists?}
+
+        CHECK_EXISTING -->|Yes| READ_EXISTING[📖 READ: data/raw_units.json]
+        CHECK_EXISTING -->|No| EMPTY_DATA[Initialize empty array]
+
+        READ_EXISTING --> PREPARE_WORKERS
+        EMPTY_DATA --> PREPARE_WORKERS[Prepare 10 parallel workers]
+
+        PREPARE_WORKERS --> SPLIT_WORK[Split unit codes across workers]
+        SPLIT_WORK --> WORKER1[Worker 1-10: Process unit batches]
+
+        subgraph "Parallel Workers (x10)"
+            WORKER1 --> LOOP_UNITS{More units?}
+            LOOP_UNITS -->|Yes| API_CALL[🌐 GET: handbook.monash.edu/_next/data/.../current/units/UNIT.json]
+
+            API_CALL --> CHECK_RESPONSE{Response OK?}
+            CHECK_RESPONSE -->|Rate Limited| FAIL_CHANNEL[Add to rateLimited channel]
+            CHECK_RESPONSE -->|Network Error| FAIL_CHANNEL2[Add to failures channel]
+            CHECK_RESPONSE -->|Success| PARSE_JSON[Parse JSON response]
+
+            PARSE_JSON --> EXTRACT_PAGE[Extract pageProps.pageContent]
+            EXTRACT_PAGE --> RESULTS_CHANNEL[Add to results channel]
+
+            RESULTS_CHANNEL --> LOOP_UNITS
+            FAIL_CHANNEL --> LOOP_UNITS
+            FAIL_CHANNEL2 --> LOOP_UNITS
+            LOOP_UNITS -->|No| WORKER_DONE[Worker complete]
+        end
+
+        WORKER_DONE --> MERGE_RESULTS[Merge all results with existing data]
+        MERGE_RESULTS --> WRITE_SUCCESS[💾 WRITE: data/raw_units.json]
+        WRITE_SUCCESS --> WRITE_FAILED[💾 WRITE: data/units_failed.json]
+
+        WRITE_FAILED --> WAIT1[⏰ Sleep 7 minutes]
+        WAIT1 --> RETRY1{Attempt < 5?}
+        RETRY1 -->|Yes| READ_FAILED[📖 READ: data/units_failed.json]
+        READ_FAILED --> PREPARE_WORKERS
+        RETRY1 -->|No| SCRAPE_DONE[✅ Scraping complete]
+    end
+
+    style START_SCRAPE fill:#e1f5ff
+    style API_CALL fill:#ffccbc
+    style WRITE_SUCCESS fill:#b39ddb
+    style WRITE_FAILED fill:#b39ddb
+    style SCRAPE_DONE fill:#c8e6c9
+    style READ_EXISTING fill:#c8e6c9
+    style READ_FAILED fill:#c8e6c9

@@ -1,0 +1,26 @@
+graph TB
+    START([User runs CLI command]) --> INIT[Initialize Content Splits]
+
+    INIT --> CHOICE{Choice flag?}
+
+    CHOICE -->|scrape| SCRAPE_CHOICE{Content flag?}
+    CHOICE -->|format| FORMAT_CHOICE{Content flag?}
+    CHOICE -->|process| PROCESS[Process Units]
+
+    SCRAPE_CHOICE -->|units/courses/aos| SCRAPE_HANDBOOK[Scrape Handbook]
+    SCRAPE_CHOICE -->|requisites| SCRAPE_REQ[Scrape Requisites]
+
+    FORMAT_CHOICE -->|units| FORMAT_UNITS[Format Units]
+    FORMAT_CHOICE -->|courses| FORMAT_COURSES[Format Courses]
+    FORMAT_CHOICE -->|aos| FORMAT_AOS[Format AOS]
+
+    SCRAPE_HANDBOOK --> OUTPUT1[Raw JSON Files]
+    SCRAPE_REQ --> OUTPUT2[Raw Requisite Files]
+    FORMAT_UNITS --> OUTPUT3[Formatted Units + Prohibitions]
+    FORMAT_COURSES --> OUTPUT4[Formatted Courses]
+    FORMAT_AOS --> OUTPUT5[Formatted AOS]
+    PROCESS --> OUTPUT6[Processed Units - FINAL]
+
+    style START fill:#e1f5ff
+    style OUTPUT6 fill:#c8e6c9
+    style INIT fill:#fff9c4
